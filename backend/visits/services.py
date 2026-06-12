@@ -1,3 +1,6 @@
+from decimal import InvalidOperation
+
+from django.core.exceptions import ValidationError
 from django.utils.dateparse import parse_datetime
 
 from backend.appointments.models import Appointment
@@ -5,6 +8,9 @@ from backend.appointments.services import serialize_appointment
 
 from .models import VisitRecord
 
+
+TEMP_HARD_MIN = 30
+TEMP_HARD_MAX = 45
 
 WRITE_FIELDS = [
     "appointment",
@@ -41,7 +47,19 @@ def normalize_payload(payload):
             data[key] = parse_datetime(data[key])
     if data.get("check_out_time") == "":
         data["check_out_time"] = None
+    _validate_temperature(data.get("visitor_temperature"))
     return data
+
+
+def _validate_temperature(value):
+    if value is None or value == "":
+        return
+    try:
+        temp = float(value)
+    except (ValueError, TypeError, InvalidOperation):
+        raise ValidationError(f"体温值无效：{value}")
+    if temp < TEMP_HARD_MIN or temp > TEMP_HARD_MAX:
+        raise ValidationError(f"体温 {temp}°C 超出合理范围（{TEMP_HARD_MIN}~{TEMP_HARD_MAX}°C）")
 
 
 def list_visits():
